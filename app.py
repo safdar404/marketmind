@@ -32,6 +32,8 @@ from src.ui.theme import CSS, HERO_SVG, LOGO, badge, matrix_html, steps_html
 E = html.escape
 st.set_page_config(page_title="MarketMind AI", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 st.markdown(CSS, unsafe_allow_html=True)
+from purple_palette import apply_palette
+apply_palette()
 ss = st.session_state
 ss.setdefault("pipe", None)
 ss.setdefault("events", [])

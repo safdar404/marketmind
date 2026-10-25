@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "Attribute": {
+      "enum": [
+        "entry_price",
+        "enterprise_price",
+        "free_tier",
+        "pricing_model",
+        "seat_minimum",
+        "ai_capabilities",
+        "integrations",
+        "deployment_options",
+        "data_residency",
+        "target_segment",
+        "funding",
+        "market_share",
+        "customer_count",
+        "market_size",
+        "growth",
+        "other"
+      ],
+      "title": "Attribute",
+      "type": "string"
+    },
+    "ClaimType": {
+      "enum": [
+        "fact",
+        "inference",
+        "recommendation",
+        "uncertainty"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    },
+    "Credibility": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown"
+      ],
+      "title": "Credibility",
+      "type": "string"
+    },
+    "Level": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Level",
+      "type": "string"
+    },
+    "SourceKind": {
+      "enum": [
+        "retrieved_document",
+        "search_result",
+        "calculation",
+        "model_generated"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": {
+      "pattern": "^E\\d{3,}$",
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "question_id": {
+      "title": "Question Id",
+      "type": "string"
+    },
+    "also_supports": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Also Supports",
+      "type": "array"
+    },
+    "claim": {
+      "maxLength": 700,
+      "minLength": 5,
+      "title": "Claim",
+      "type": "string"
+    },
+    "claim_type": {
+      "$ref": "#/$defs/ClaimType"
+    },
+    "entity": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity"
+    },
+    "attribute": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Attribute"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_ref": {
+      "pattern": "^R\\d{4,}$",
+      "title": "Source Ref",
+      "type": "string"
+    },
+    "source_kind": {
+      "$ref": "#/$defs/SourceKind"
+    },
+    "source_detail": {
+      "additionalProperties": true,
+      "title": "Source Detail",
+      "type": "object"
+    },
+    "quote": {
+      "default": "",
+      "maxLength": 600,
+      "title": "Quote",
+      "type": "string"
+    },
+    "credibility": {
+      "$ref": "#/$defs/Credibility"
+    },
+    "recency": {
+      "description": "ISO date or bucket: <1y | 1-3y | 3-5y | >5y | unknown",
+      "title": "Recency",
+      "type": "string"
+    },
+    "corroboration": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Corroboration",
+      "type": "array"
+    },
+    "conflicts_with": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Conflicts With",
+      "type": "array"
+    },
+    "confidence": {
+      "$ref": "#/$defs/Level"
+    },
+    "analyst_notes": {
+      "default": "",
+      "maxLength": 600,
+      "title": "Analyst Notes",
+      "type": "string"
+    },
+    "created_by_stage": {
+      "default": "evidence_analyst",
+      "title": "Created By Stage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "question_id",
+    "claim",
+    "claim_type",
+    "source_ref",
+    "source_kind",
+    "credibility",
+    "recency",
+    "confidence"
+  ],
+  "title": "EvidenceRecord",
+  "type": "object"
+}

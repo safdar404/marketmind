@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "EvidenceType": {
+      "enum": [
+        "pricing",
+        "product_capability",
+        "market_size",
+        "positioning",
+        "customer_evidence",
+        "trend",
+        "regulatory",
+        "company_profile"
+      ],
+      "title": "EvidenceType",
+      "type": "string"
+    },
+    "Objective": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^O\\d+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 5,
+          "title": "Title",
+          "type": "string"
+        },
+        "sub_questions": {
+          "items": {
+            "$ref": "#/$defs/SubQuestion"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Sub Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "sub_questions"
+      ],
+      "title": "Objective",
+      "type": "object"
+    },
+    "Priority": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "ResearchToolName": {
+      "enum": [
+        "search_information",
+        "retrieve_document",
+        "calculate_metric",
+        "compare_companies"
+      ],
+      "title": "ResearchToolName",
+      "type": "string"
+    },
+    "SubQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^Q\\d+\\.\\d+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 300,
+          "minLength": 15,
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence_type": {
+          "$ref": "#/$defs/EvidenceType"
+        },
+        "candidate_tools": {
+          "items": {
+            "$ref": "#/$defs/ResearchToolName"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Candidate Tools",
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority"
+        },
+        "done_when": {
+          "description": "Observable stopping condition",
+          "maxLength": 200,
+          "minLength": 5,
+          "title": "Done When",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "evidence_type",
+        "candidate_tools",
+        "priority",
+        "done_when"
+      ],
+      "title": "SubQuestion",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "objectives": {
+      "items": {
+        "$ref": "#/$defs/Objective"
+      },
+      "maxItems": 6,
+      "minItems": 1,
+      "title": "Objectives",
+      "type": "array"
+    }
+  },
+  "required": [
+    "objectives"
+  ],
+  "title": "ResearchPlan",
+  "type": "object"
+}

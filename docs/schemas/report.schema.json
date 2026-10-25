@@ -1,0 +1,480 @@
+{
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approver": {
+          "maxLength": 80,
+          "minLength": 2,
+          "title": "Approver",
+          "type": "string"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "approver",
+        "decision",
+        "timestamp"
+      ],
+      "title": "Approval",
+      "type": "object"
+    },
+    "Attribute": {
+      "enum": [
+        "entry_price",
+        "enterprise_price",
+        "free_tier",
+        "pricing_model",
+        "seat_minimum",
+        "ai_capabilities",
+        "integrations",
+        "deployment_options",
+        "data_residency",
+        "target_segment",
+        "funding",
+        "market_share",
+        "customer_count",
+        "market_size",
+        "growth",
+        "other"
+      ],
+      "title": "Attribute",
+      "type": "string"
+    },
+    "ClaimType": {
+      "enum": [
+        "fact",
+        "inference",
+        "recommendation",
+        "uncertainty"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    },
+    "ConfidenceLevel": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/Level"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "rationale"
+      ],
+      "title": "ConfidenceLevel",
+      "type": "object"
+    },
+    "Credibility": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown"
+      ],
+      "title": "Credibility",
+      "type": "string"
+    },
+    "EvidenceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "pattern": "^E\\d{3,}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "question_id": {
+          "title": "Question Id",
+          "type": "string"
+        },
+        "also_supports": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Also Supports",
+          "type": "array"
+        },
+        "claim": {
+          "maxLength": 700,
+          "minLength": 5,
+          "title": "Claim",
+          "type": "string"
+        },
+        "claim_type": {
+          "$ref": "#/$defs/ClaimType"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity"
+        },
+        "attribute": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Attribute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_ref": {
+          "pattern": "^R\\d{4,}$",
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_detail": {
+          "additionalProperties": true,
+          "title": "Source Detail",
+          "type": "object"
+        },
+        "quote": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Quote",
+          "type": "string"
+        },
+        "credibility": {
+          "$ref": "#/$defs/Credibility"
+        },
+        "recency": {
+          "description": "ISO date or bucket: <1y | 1-3y | 3-5y | >5y | unknown",
+          "title": "Recency",
+          "type": "string"
+        },
+        "corroboration": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Corroboration",
+          "type": "array"
+        },
+        "conflicts_with": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts With",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Level"
+        },
+        "analyst_notes": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Analyst Notes",
+          "type": "string"
+        },
+        "created_by_stage": {
+          "default": "evidence_analyst",
+          "title": "Created By Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "question_id",
+        "claim",
+        "claim_type",
+        "source_ref",
+        "source_kind",
+        "credibility",
+        "recency",
+        "confidence"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "default": "",
+          "title": "Id",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 700,
+          "minLength": 5,
+          "title": "Statement",
+          "type": "string"
+        },
+        "claim_type": {
+          "$ref": "#/$defs/ClaimType"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Level"
+        },
+        "objective_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Objective Id"
+        }
+      },
+      "required": [
+        "statement",
+        "claim_type",
+        "confidence"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Level": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Level",
+      "type": "string"
+    },
+    "Recommendation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "default": "",
+          "title": "Id",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 700,
+          "minLength": 5,
+          "title": "Statement",
+          "type": "string"
+        },
+        "claim_type": {
+          "$ref": "#/$defs/ClaimType",
+          "default": "recommendation"
+        },
+        "motivated_by": {
+          "description": "Finding ids or evidence ids",
+          "items": {
+            "type": "string"
+          },
+          "title": "Motivated By",
+          "type": "array"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Level"
+        }
+      },
+      "required": [
+        "statement",
+        "confidence"
+      ],
+      "title": "Recommendation",
+      "type": "object"
+    },
+    "SourceKind": {
+      "enum": [
+        "retrieved_document",
+        "search_result",
+        "calculation",
+        "model_generated"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "report_id": {
+      "title": "Report Id",
+      "type": "string"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "status": {
+      "pattern": "^(complete|incomplete)$",
+      "title": "Status",
+      "type": "string"
+    },
+    "incomplete_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incomplete Reason"
+    },
+    "model_versions": {
+      "additionalProperties": true,
+      "title": "Model Versions",
+      "type": "object"
+    },
+    "run_cost": {
+      "additionalProperties": true,
+      "title": "Run Cost",
+      "type": "object"
+    },
+    "research_objective": {
+      "additionalProperties": true,
+      "title": "Research Objective",
+      "type": "object"
+    },
+    "executive_summary": {
+      "minLength": 10,
+      "title": "Executive Summary",
+      "type": "string"
+    },
+    "market_overview": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Market Overview",
+      "type": "array"
+    },
+    "key_trends": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Key Trends",
+      "type": "array"
+    },
+    "competitor_analysis": {
+      "additionalProperties": true,
+      "title": "Competitor Analysis",
+      "type": "object"
+    },
+    "opportunities": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Opportunities",
+      "type": "array"
+    },
+    "risks": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "evidence_appendix": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRecord"
+      },
+      "title": "Evidence Appendix",
+      "type": "array"
+    },
+    "recommendations": {
+      "items": {
+        "$ref": "#/$defs/Recommendation"
+      },
+      "title": "Recommendations",
+      "type": "array"
+    },
+    "confidence_level": {
+      "$ref": "#/$defs/ConfidenceLevel"
+    },
+    "limitations_and_gaps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations And Gaps",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "qc": {
+      "additionalProperties": true,
+      "title": "Qc",
+      "type": "object"
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Approval"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "report_id",
+    "generated_at",
+    "status",
+    "model_versions",
+    "run_cost",
+    "research_objective",
+    "executive_summary",
+    "market_overview",
+    "key_trends",
+    "competitor_analysis",
+    "opportunities",
+    "risks",
+    "evidence_appendix",
+    "recommendations",
+    "confidence_level",
+    "limitations_and_gaps",
+    "sources",
+    "qc"
+  ],
+  "title": "Report",
+  "type": "object"
+}

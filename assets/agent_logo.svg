@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="rb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5E7E"/><stop offset=".2" stop-color="#FF9F43"/><stop offset=".38" stop-color="#FFD93D"/>
+      <stop offset=".55" stop-color="#3DDC97"/><stop offset=".72" stop-color="#2EC5FF"/><stop offset=".88" stop-color="#8B6CFF"/><stop offset="1" stop-color="#FF5FD2"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E1A3F"/><stop offset="1" stop-color="#0E0C22"/></linearGradient>
+    <radialGradient id="eye"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#7DF9FF"/><stop offset="1" stop-color="#2EC5FF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="spark"><stop offset="0" stop-color="#FFF6B0"/><stop offset=".5" stop-color="#FFD93D"/><stop offset="1" stop-color="#FF9F43" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="32" fill="#0B0A1C"/>
+  <rect x="4" y="4" width="120" height="120" rx="32" fill="none" stroke="url(#rb)" stroke-width="4"/>
+  <!-- antenna -->
+  <path d="M64 30 V20" stroke="url(#rb)" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="64" cy="16" r="9" fill="url(#spark)"/><circle cx="64" cy="16" r="3.6" fill="#FFF6B0"/>
+  <!-- ears -->
+  <rect x="17" y="56" width="10" height="24" rx="5" fill="url(#rb)"/>
+  <rect x="101" y="56" width="10" height="24" rx="5" fill="url(#rb)"/>
+  <!-- head -->
+  <rect x="25" y="30" width="78" height="74" rx="24" fill="url(#face)" stroke="url(#rb)" stroke-width="3.5"/>
+  <!-- visor -->
+  <rect x="34" y="48" width="60" height="28" rx="14" fill="#06051A" stroke="#2A2560" stroke-width="1.5"/>
+  <circle cx="51" cy="62" r="11" fill="url(#eye)"/><circle cx="77" cy="62" r="11" fill="url(#eye)"/>
+  <circle cx="51" cy="62" r="4.2" fill="#FFFFFF"/><circle cx="77" cy="62" r="4.2" fill="#FFFFFF"/>
+  <!-- mouth / data bar -->
+  <rect x="46" y="86" width="6" height="6" rx="2" fill="#FF5E7E"/><rect x="55" y="86" width="6" height="6" rx="2" fill="#FFD93D"/>
+  <rect x="64" y="86" width="6" height="6" rx="2" fill="#3DDC97"/><rect x="73" y="86" width="6" height="6" rx="2" fill="#2EC5FF"/>
+  <rect x="82" y="86" width="0" height="6" rx="2" fill="#8B6CFF"/>
+  <!-- circuit nodes -->
+  <circle cx="34" cy="40" r="2.6" fill="#FF5FD2"/><circle cx="94" cy="40" r="2.6" fill="#2EC5FF"/>
+</svg>

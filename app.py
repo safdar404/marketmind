@@ -25,19 +25,28 @@ from src.state.persistence import list_runs, load_state
 from src.state.research_state import ResearchState
 from src.tools.dispatcher import Dispatcher
 from src.tools.impl.base import ToolContext
-from src.tools.impl.corpus import Corpus
+from src.tools.impl.corpus import Corpus, scan_injection
 from src.tools.registry import REGISTRY
-from src.ui.theme import CSS, HERO_SVG, LOGO, badge, matrix_html, steps_html
+import re
+
+from src.ui.theme import (CSS, EPISTEMIC, ICON_PATH, LOGO, badge, hero_html, matrix_html, progress_pct, stats_html,
+                          steps_html)
 
 E = html.escape
-st.set_page_config(page_title="MarketMind AI", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="MarketMind AI", page_icon=str(ICON_PATH) if ICON_PATH.exists() else "🤖",
+                   layout="wide", initial_sidebar_state="expanded")
 st.markdown(CSS, unsafe_allow_html=True)
-from purple_palette import apply_palette
-apply_palette()
 ss = st.session_state
 ss.setdefault("pipe", None)
 ss.setdefault("events", [])
 ss.setdefault("naive", None)
+ss.setdefault("flash", [])  # messages that must survive the st.rerun() that follows an action
+
+
+@st.cache_resource(show_spinner=False)
+def browse_corpus() -> Corpus:
+    _s = Settings.from_env(require_key=False)
+    return Corpus(_s.corpus_dir, _s.corpus_reference_date)
 
 # ============================================================== sidebar
 with st.sidebar:
@@ -67,6 +76,11 @@ with st.sidebar:
         fault = st.radio("search_information", ["none", "fail first 2 calls", "always fail", "timeout"], index=0)
     reviewer = st.text_input("🧑‍⚖️ Reviewer name", placeholder="e.g. Dana Okafor",
                              help="Recorded as the approver identity on every decision.")
+    if ss.pipe:
+        _st = ss.pipe.state
+        st.download_button("📦 Export run (JSON)", _st.model_dump_json(indent=2), f"{_st.run_id}_state.json",
+                           "application/json", width="stretch", help="Full run state: scope, plan, evidence, QC, report, audit trail.")
+    st.caption("🔒 Your key never leaves this session's memory.")
 
 
 def build_settings() -> Settings:
@@ -89,22 +103,24 @@ if test_conn:
 # ============================================================== hero
 pipe: Pipeline | None = ss.pipe
 state: ResearchState | None = pipe.state if pipe else None
-st.markdown(f"""<div class="mm-hero"><div>
-<h1>MarketMind AI</h1>
-<p>An autonomous business-research agent whose every claim can be checked: decomposed into a plan, gathered by tools,
-typed as fact or inference, audited by a quality checker, and published only when a named person approves.</p>
-<div class="tags"><span class="mm-tag">🔧 Hand-built agent loop</span><span class="mm-tag">📐 Strict schemas</span>
-<span class="mm-tag">🧾 Evidence-bound claims</span><span class="mm-tag">🛡️ Injection-aware</span><span class="mm-tag">🧑‍⚖️ Human approval gate</span></div>
-</div>{HERO_SVG}</div>""", unsafe_allow_html=True)
-st.markdown(steps_html(state.stage if state else "created"), unsafe_allow_html=True)
+stage_now = state.stage if state else "created"
+st.markdown(hero_html(stage_now), unsafe_allow_html=True)
+st.markdown(steps_html(stage_now), unsafe_allow_html=True)
 
 if state:
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Run", state.run_id[-6:])
-    m2.metric("Evidence", len(state.evidence))
-    m3.metric("Tool calls", f"{state.tool_calls}/{pipe.settings.max_tool_calls}")
-    m4.metric("Iterations", f"{state.iteration}/{pipe.settings.max_iterations}")
-    m5.metric("Spend", f"${pipe.usage.total_cost:.4f}", f"of ${pipe.settings.budget_usd:.2f}", delta_color="off")
+    st.markdown(stats_html([
+        ("🆔 Run", state.run_id[-6:], "", "#FF5E7E"),
+        ("🧾 Evidence", str(len(state.evidence)), "", "#FF9F43"),
+        ("🔧 Tool calls", str(state.tool_calls), f"/ {pipe.settings.max_tool_calls}", "#FFD93D"),
+        ("🔁 Iterations", str(state.iteration), f"/ {pipe.settings.max_iterations}", "#3DDC97"),
+        ("💸 Spend", f"${pipe.usage.total_cost:.4f}", f"/ ${pipe.settings.budget_usd:.2f}", "#2EC5FF"),
+        ("📍 Progress", f"{progress_pct(stage_now)}%", stage_now.replace("_", " "), "#8B6CFF"),
+    ]), unsafe_allow_html=True)
+
+# Errors raised during an action are kept in session state so the rerun that follows doesn't erase them.
+for _kind, _msg in ss.flash:
+    (st.error if _kind == "error" else st.success)(_msg)
+ss.flash = []
 
 
 def live(label: str):
@@ -130,22 +146,27 @@ def live(label: str):
 
 
 def guard(fn):
+    """Run an action; turn known failures into a message that survives the following st.rerun()."""
+    msg = None
     try:
         return fn()
     except (ConfigError, InputError, ApprovalError, PipelineError) as e:
-        st.error(f"⚠️ {e}")
+        msg = f"⚠️ {e}"
     except LLMError as e:
         hints = {"auth": "Check the key in the sidebar.", "quota": "Check billing or the key's spend limit.",
                  "rate_limit": "Wait a minute and retry.", "context_length": "Lower steps per sub-question.",
                  "budget": "Raise the cost ceiling or start a new run."}
-        st.error(f"🛑 API {e.kind}: {e.message} {hints.get(e.kind, '')}")
+        msg = f"🛑 API {e.kind}: {e.message} {hints.get(e.kind, '')}"
     finally:
+        if msg:
+            st.error(msg)
+            ss.flash.append(("error", msg))
         if ss.pipe:
             ss.pipe.save()
 
 
 tabs = st.tabs(["🧭 Brief", "🗺️ Plan", "🔬 Research", "🧾 Evidence", "🧪 Quality", "✅ Approval", "📄 Report",
-                "💸 Usage", "🛡️ Tool lab", "🗂️ Runs"])
+                "💸 Usage", "📚 Corpus", "🛡️ Tool lab", "🗂️ Runs", "ℹ️ How it works"])
 
 # ============================================================== 1 brief
 with tabs[0]:
@@ -157,12 +178,12 @@ with tabs[0]:
             st.warning("The bundled corpus covers S1 only. Other scenarios will plan correctly but research will mostly "
                        "return 'could not establish' — which is the honest result. Add documents to data/corpus to research them.")
         request = st.text_area("Request as received", SCENARIOS[sc]["request"], height=110, max_chars=2000)
-        if st.button("🧭 Analyse request", type="primary", disabled=not api_key):
+        if st.button("🧭 Analyse request", type="primary", disabled=not api_key or not request.strip()):
             def go():
-                ss.pipe = Pipeline(build_settings())
-                ss.events = []
-                with st.spinner("Interrogating the request for ambiguity…"):
-                    ss.pipe.analyse(request)
+                new = Pipeline(build_settings())
+                with st.spinner("🤖 Interrogating the request for ambiguity…"):
+                    new.analyse(request)
+                ss.pipe, ss.events, ss.naive = new, [], None  # only adopt the run once analysis succeeded
             guard(go)
             st.rerun()
         if not api_key:
@@ -270,18 +291,36 @@ with tabs[3]:
     if not (state and state.evidence):
         st.info("Evidence appears here as the research loop runs.")
     else:
-        types = st.multiselect("Claim types", ["fact", "inference", "recommendation", "uncertainty"],
-                               ["fact", "inference", "recommendation", "uncertainty"])
-        for e in state.evidence.values():
+        allev = list(state.evidence.values())
+        counts = {k: sum(1 for e in allev if e.claim_type.value == k) for k in EPISTEMIC}
+        dot = {"fact": "🟢", "inference": "🟣", "recommendation": "🔵", "uncertainty": "🟡"}
+        st.markdown(stats_html([(f"{dot[k]} {k}", str(v), f"{v / max(1, len(allev)) * 100:.0f}%", EPISTEMIC[k])
+                                for k, v in counts.items()]), unsafe_allow_html=True)
+        f1, f2, f3 = st.columns([2, 1.4, 1])
+        types = f1.multiselect("Claim types", list(EPISTEMIC), list(EPISTEMIC))
+        needle = f2.text_input("🔎 Search claims", placeholder="vendor, price, Q1.2…")
+        f3.download_button("⬇️ Evidence CSV", pd.DataFrame([{
+            "evidence_id": e.evidence_id, "question_id": e.question_id, "claim_type": e.claim_type.value, "claim": e.claim,
+            "source_ref": e.source_ref, "credibility": e.credibility.value, "confidence": e.confidence.value,
+            "recency": e.recency, "corroboration": ";".join(e.corroboration), "conflicts_with": ";".join(e.conflicts_with),
+            "quote": e.quote} for e in allev]).to_csv(index=False), f"{state.run_id}_evidence.csv", "text/csv", width="stretch")
+        shown = 0
+        for e in allev:
             if e.claim_type.value not in types:
                 continue
+            if needle and needle.lower() not in f"{e.evidence_id} {e.question_id} {e.claim} {e.quote}".lower():
+                continue
+            shown += 1
             src = e.source_detail.get("title") or e.source_detail.get("operation") or e.source_ref
             extra = (f" · corroborated by {', '.join(e.corroboration)}" if e.corroboration else "") + \
                     (f" · ⚠️ conflicts with {', '.join(e.conflicts_with)}" if e.conflicts_with else "")
-            st.markdown(f'<div class="ev-line">{badge(e.claim_type.value)}<b>{e.evidence_id}</b> · {E(e.claim)}<br>'
+            st.markdown(f'<div class="ev-line" style="--c:{EPISTEMIC.get(e.claim_type.value, "#2C2860")}">'
+                        f'{badge(e.claim_type.value)}<span class="mm-id">{e.evidence_id}</span> · {E(e.claim)}<br>'
                         f'<span class="mm-muted">📄 {E(str(src))} ({e.source_ref}) · credibility {e.credibility.value} · '
                         f'confidence {e.confidence.value} · {E(e.recency)} · for {e.question_id}{E(extra)}</span>'
                         + (f'<br><span class="mm-muted">“{E(e.quote[:220])}”</span>' if e.quote else "") + "</div>", unsafe_allow_html=True)
+        if not shown:
+            st.caption("No evidence matches these filters.")
         st.subheader("🏁 Comparison matrix")
         st.markdown(matrix_html(state.matrix or {}), unsafe_allow_html=True)
         c1, c2 = st.columns(2)
@@ -401,16 +440,71 @@ with tabs[7]:
         c4.metric("Budget used", f"{min(100, u['total_cost_usd'] / pipe.settings.budget_usd * 100):.0f}%")
         st.progress(min(1.0, u["total_cost_usd"] / pipe.settings.budget_usd))
         df = pd.DataFrame(u["by_stage"]).T
-        st.subheader("Cost by stage")
-        st.bar_chart(df["cost_usd"], color="#8B6CFF")
+        g1, g2 = st.columns(2)
+        with g1:
+            st.subheader("💰 Cost by stage")
+            st.bar_chart(df["cost_usd"].astype(float), color="#FF5FD2", height=230)
+        with g2:
+            st.subheader("🔤 Tokens by stage")
+            st.bar_chart(df[["prompt_tokens", "completion_tokens"]].astype(int), color=["#2EC5FF", "#FFD93D"],
+                         stack=True, height=230)
         st.dataframe(df, width="stretch")
         if u["unpriced_models"]:
             st.warning(f"Unknown pricing for {u['unpriced_models']} — a pessimistic fallback price was used.")
         with st.expander("Every call"):
             st.dataframe(pd.DataFrame(pipe.usage.to_list()), hide_index=True, width="stretch")
 
-# ============================================================== 9 tool lab
+# ============================================================== 9 corpus explorer
 with tabs[8]:
+    st.subheader("📚 Corpus explorer")
+    st.caption("Browse and search the documents the agent can retrieve — the same BM25 index its search tool uses. "
+               "No API key or cost.")
+    corpus = browse_corpus()
+    docs = list(corpus.docs.values())
+    if not docs:
+        st.info("No documents in data/corpus.")
+    else:
+        by_type = pd.Series([d.source_type for d in docs]).value_counts()
+        palette = ["#FF5E7E", "#FF9F43", "#FFD93D", "#3DDC97", "#2EC5FF", "#8B6CFF", "#FF5FD2"]
+        st.markdown(stats_html([("📄 Documents", str(len(docs)), "", "#FF5E7E"),
+                                ("🧩 Sections", str(len(corpus.sections)), "", "#FFD93D"),
+                                ("🏢 Vendors", str(len({d.vendor for d in docs if d.vendor})), "", "#3DDC97"),
+                                ("📅 Reference date", corpus.reference.isoformat(), "", "#2EC5FF")] +
+                               [(f"🏷️ {t.replace('_', ' ')}", str(n), "", palette[(i + 4) % 7]) for i, (t, n) in enumerate(by_type.items())]),
+                    unsafe_allow_html=True)
+        q1, q2, q3 = st.columns([2.2, 1, 1])
+        cq = q1.text_input("🔎 Search the corpus", placeholder="e.g. Converso seat minimum, market size 2025")
+        ctype = q2.selectbox("Source type", ["any"] + sorted(by_type.index))
+        crec = q3.selectbox("Recency", ["any", "1y", "3y", "5y"])
+        if cq.strip():
+            hits = corpus.search(cq, ctype, 8, crec)
+            if not hits:
+                st.caption("No matching sections.")
+            terms = [t for t in re.findall(r"[A-Za-z0-9$%]{3,}", cq) if t.lower() not in ("amp", "quot")]
+            for h in hits:
+                snip = E(h["snippet"])
+                for t in terms:
+                    snip = re.sub(f"({re.escape(E(t))})", r"<mark>\1</mark>", snip, flags=re.I)
+                st.markdown(f'<div class="mm-doc"><span class="mm-id">{E(h["document_id"])}</span> · <b>{E(h["title"])}</b> › '
+                            f'{E(h["section"])} <span class="badge b-low">score {h["score"]}</span>'
+                            f'<span class="badge b-recommendation">{E(h["source_type"])}</span><br>'
+                            f'<span class="mm-muted">{snip}</span></div>', unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame([{"id": d.id, "title": d.title, "type": d.source_type, "vendor": d.vendor, "date": d.date,
+                                    "recency": corpus.recency_bucket(d), "credibility hint": d.credibility_hint,
+                                    "⚠️ injection lines": len(scan_injection(d.text))} for d in docs]),
+                     hide_index=True, width="stretch", height=260)
+        pick = st.selectbox("📖 Read a document", [d.id for d in docs],
+                            format_func=lambda i: f"{i} · {corpus.docs[i].title}")
+        doc = corpus.get(pick)
+        flagged = scan_injection(doc.text)
+        if flagged:
+            st.markdown('<div class="verdict v-warn">🛡️ This document contains instruction-like text. The agent treats it as '
+                        'data and flags it: ' + E(" | ".join(flagged[:3])) + "</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(doc.text)
+
+# ============================================================== 10 tool lab
+with tabs[9]:
     st.subheader("Adversarial dispatcher tests")
     st.caption("Runs against a sandbox state — no API key or cost. Every call must return a structured error, never crash.")
     if "lab" not in ss:
@@ -447,8 +541,8 @@ with tabs[8]:
                                 "budget": s.budget, "timeout s": s.timeout_s, "abuse if attacker-controlled": s.abuse_case,
                                 "prevented by": s.mitigation} for n, s in REGISTRY.items()]), hide_index=True, width="stretch")
 
-# ============================================================== 10 runs
-with tabs[9]:
+# ============================================================== 11 runs
+with tabs[10]:
     _s = Settings.from_env(require_key=False)
     runs = list_runs(_s.runs_dir)
     if not runs:
@@ -464,7 +558,34 @@ with tabs[9]:
         if not api_key:
             st.caption("Loading a run to continue it requires the API key (for expand / rescope decisions).")
         p = Path(_s.runs_dir) / rid
-        st.caption(f"Artefacts in `{p}`: " + ", ".join(sorted(x.name for x in p.iterdir())))
+        if p.is_dir():
+            st.caption(f"Artefacts in `{p.name}`: " + ", ".join(sorted(x.name for x in p.iterdir())))
 
-st.markdown('<p class="mm-muted" style="text-align:center;margin-top:2rem">MarketMind AI · AAI-412 / PRAC-05 · '
+# ============================================================== 12 how it works
+with tabs[11]:
+    st.subheader("ℹ️ How the agent works")
+    flow = [("🧭", "Scope", "Request analyser normalises the brief and lists ambiguities — ask the client or assume.", "#FF5E7E"),
+            ("🗺️", "Plan", "Planner decomposes it into sub-questions with evidence types, tools and stop conditions.", "#FF9F43"),
+            ("🔬", "Research", "A bounded tool loop searches, retrieves and calculates; every call is validated and logged.", "#FFD93D"),
+            ("🏁", "Compare", "Evidence is typed fact / inference / recommendation / uncertainty and placed in a matrix.", "#3DDC97"),
+            ("🧠", "Synthesise", "Findings are written only from saved evidence ids — no id, no claim.", "#2EC5FF"),
+            ("🧪", "Check", "Quality control finds defects and opens bounded repair rounds.", "#8B6CFF"),
+            ("✅", "Approve", "A named human approves, rejects, expands or rescopes. Nothing publishes without it.", "#FF5FD2")]
+    st.markdown('<div class="mm-stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">' + "".join(
+        f'<div class="mm-stat" style="--c:{c}"><small>step {i + 1}</small><b>{ic} {n}</b><br>'
+        f'<span class="mm-muted" style="font-size:.78rem">{E(d)}</span></div>' for i, (ic, n, d, c) in enumerate(flow)) + "</div>",
+                unsafe_allow_html=True)
+    h1, h2 = st.columns(2)
+    with h1:
+        st.markdown("**🚀 Quick start**\n1. Paste an OpenAI key in the sidebar and press **Test key**.\n"
+                    "2. Pick scenario **🎧 S1** (the bundled corpus covers it) → **Analyse request**.\n"
+                    "3. Answer any client questions → **Build research plan**.\n"
+                    "4. **Run research loop**, then **Compare · synthesise · check · draft**.\n"
+                    "5. Review in **✅ Approval**, enter your name, record a decision.")
+    with h2:
+        st.markdown("**🆓 Try without a key**\n- **📚 Corpus** — search and read every source document.\n"
+                    "- **🛡️ Tool lab** — fire adversarial calls at the tool dispatcher.\n\n"
+                    "**🎨 Claim colours**\n\n" + " ".join(badge(k) for k in EPISTEMIC), unsafe_allow_html=True)
+
+st.markdown('<p class="mm-foot">🤖 <span>MarketMind AI</span> · AAI-412 / PRAC-05 · '
             'Every claim typed, sourced and human-approved.</p>', unsafe_allow_html=True)
